@@ -1,4 +1,4 @@
-# zabbix-widgets-graph
+# zabbix-widgets-piechart
 An enhanced Pie Chart Widget for the Zabbix Dashboard
 
 ## Functionality and Features
