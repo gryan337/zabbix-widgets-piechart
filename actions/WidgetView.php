@@ -511,17 +511,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 			$metrics[] = $a;
 		}
 
-		$colorIndex = 0;
 		foreach ($metrics as &$metric) {
 			if ($templateid !== '' && $override_hostid === '') {
 				continue;
-			}
-
-			if ($metric['options']['dataset_type'] == CWidgetFieldDataSet::DATASET_TYPE_SINGLE_ITEM &&
-					isset($metric['options']['color']) &&
-					($metric['options']['color'] === '' || $metric['options']['color'] === '#')) {
-				$metric['options']['color'] = '#' . self::COLOR_BLIND_FRIENDLY_PALETTE[$colorIndex % count(self::COLOR_BLIND_FRIENDLY_PALETTE)];
-				$colorIndex++;
 			}
 
 			$values = Manager::History()->getAggregatedValues($metric['items'],
@@ -625,7 +617,8 @@ class WidgetView extends CControllerDashboardWidgetView {
 					'color' => $metric['options']['color'],
 					'value' => $metric['value'],
 					'units' => $metric['units'],
-					'is_total' => $is_total
+					'is_total' => $is_total,
+					'dataset_type' => $metric['options']['dataset_type']
 				];
 
 				$all_sectorids[] = $metric['data_set'].'_'.$metric['itemid'];
@@ -663,12 +656,23 @@ class WidgetView extends CControllerDashboardWidgetView {
 					'color' => $merge_sectors['color'],
 					'value' => $others_value,
 					'units' => $chart_units,
-					'is_total' => false
+					'is_total' => false,
+					'dataset_type' => null
 				];
 			}
 		}
 
+		$colorIndex = 0;
 		foreach ($sectors as &$sector) {
+			if ($sector['dataset_type'] == CWidgetFieldDataSet::DATASET_TYPE_SINGLE_ITEM &&
+					isset($sector['color']) &&
+					($sector['color'] === '' || $sector['color'] === '#')) {
+				$sector['color'] = '#' . self::COLOR_BLIND_FRIENDLY_PALETTE[$colorIndex % count(self::COLOR_BLIND_FRIENDLY_PALETTE)];
+				$colorIndex++;
+			}
+
+			unset($sector['dataset_type']);
+
 			$formatted_value = convertUnitsRaw([
 				'value' => $sector['value'],
 				'units' => $sector['units'],
