@@ -372,11 +372,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 			$items = CArrayHelper::renameObjectsKeys($items, ['name_resolved' => 'name']);
 		}
 
-		$colors = array_key_exists('color', $data_set)
-			? CColorPicker::getColorVariations($data_set['color'], count($items))
-			: CColorPicker::getPaletteColors($data_set['color_palette'], count($items));
+		$colors = getColorVariations('#'.$data_set['color'], count($items));
 
-		unset($data_set['hosts'], $data_set['items'], $data_set['color'], $data_set['color_palette']);
+		unset($data_set['hosts'], $data_set['items'], $data_set['color']);
 
 		foreach ($items as $item) {
 			$data_set['color'] = array_shift($colors);

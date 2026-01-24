@@ -35,7 +35,7 @@ $form
 	->addItem($form_tabs)
 	->addJavaScript($form_tabs->makeJavascript())
 	->includeJsFile('widget.edit.js.php')
-	->initFormJs('widget_piechartrme_form.init('.json_encode([
+	->addJavascript('widget_piechartrme_form.init('.json_encode([
 			'form_tabs_id' => $form_tabs->getId(),
 			'color_palette' => CWidgetFieldDataSet::DEFAULT_COLOR_PALETTE,
 			'templateid' => $data['templateid']
