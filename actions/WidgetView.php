@@ -399,19 +399,48 @@ class WidgetView extends CControllerDashboardWidgetView {
 	private static function getMetricsData(array &$metrics, array $time_period, bool $legend_aggregation_show,
 			string $templateid, string $override_hostid): void {
 		$dataset_metrics = [];
-		$add_ds_names = [];
+		$agg_ds_names = [];
 
+		$batch_size = 10000;
+		$items_to_resolve = [];
+		$resolved_all = [];
+
+		// First pass: collect and resolve all items in batches
+		foreach ($metrics as $metric_num => $metric) {
+			$items_to_resolve[$metric['itemid']] = $metric + ['label' => $metric['options']['data_set_label']];
+
+			// Process batch when limit reached
+			if (count($items_to_resolve) >= $batch_size) {
+				$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
+					$items_to_resolve,
+					['label' => 'label']
+				);
+				if (is_array($resolved)) {
+					$resolved_all = $resolved_all + $resolved;
+				}
+				$items_to_resolve = [];
+			}
+		}
+
+		// Process remaining items
+		if (!empty($items_to_resolve)) {
+			$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
+				$items_to_resolve,
+				['label' => 'label']
+			);
+			if (is_array($resolved)) {
+				$resolved_all = $resolved_all + $resolved;
+			}
+		}
+
+		// Now run the original loop logic with pre-resolved values
 		foreach ($metrics as $metric_num => &$metric) {
 			$dataset_num = $metric['data_set'];
 			if (!array_key_exists($dataset_num, $add_ds_names)) {
 				$agg_ds_names[$dataset_num] = [];
 			}
 
-			$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
-				[$metric['itemid'] => $metric + ['label' => $metric['options']['data_set_label']]],
-				['label' => 'label']
-			);
-			$resolved_value = $resolved[$metric['itemid']]['label'];
+			$resolved_value = $resolved_all[$metric['itemid']]['label'];
 
 			if ($metric['options']['dataset_aggregation'] == AGGREGATE_NONE) {
 				if ($legend_aggregation_show) {
