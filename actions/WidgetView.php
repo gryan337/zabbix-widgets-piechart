@@ -403,46 +403,79 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$dataset_metrics = [];
 		$agg_ds_names = [];
 
-		$batch_size = 10000;
-		$items_to_resolve = [];
-		$resolved_all = [];
-
-		// First pass: collect and resolve all items in batches
+		// Group items by dataset for batch processing
+		$items_by_dataset = [];
 		foreach ($metrics as $metric_num => $metric) {
-			$items_to_resolve[$metric['itemid']] = $metric + ['label' => $metric['options']['data_set_label']];
+			$dataset_num = $metric['data_set'];
+			if (!isset($items_by_dataset[$dataset_num])) {
+				$items_by_dataset[$dataset_num] = [];
+			}
 
-			// Process batch when limit reached
-			if (count($items_to_resolve) >= $batch_size) {
+			$items_by_dataset[$dataset_num][$metric['itemid']] = $metric + [
+				'label' => $metric['options']['data_set_label']
+			];
+		}
+
+		// Resolve macros per dataset with batching limit of 10000 within each dataset
+		$resolved_by_dataset = [];
+		foreach ($items_by_dataset as $dataset_num => $items) {
+
+			$batch_size = 10000;
+			$current_batch = [];
+			$batch_num = 0;
+			$resolved_by_dataset[$dataset_num] = [];
+
+			foreach ($items as $itemid => $item) {
+				$current_batch[$itemid] = $item;
+
+				if (count($current_batch) >= $batch_size) {
+					$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
+						$current_batch,
+						['label' => 'label']
+					);
+					if (is_array($resolved)) {
+						// Use + to preserve numeric keys
+						$resolved_by_dataset[$dataset_num] = $resolved_by_dataset[$dataset_num] + $resolved;
+					}
+
+					$current_batch = [];
+					$batch_num++;
+				}
+			}
+
+			// Process remaining items for this dataset
+			if (!empty($current_batch)) {
 				$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
-					$items_to_resolve,
+					$current_batch,
 					['label' => 'label']
 				);
 				if (is_array($resolved)) {
-					$resolved_all = $resolved_all + $resolved;
+					// Use + to preserve numeric keys
+					$resolved_by_dataset[$dataset_num] = $resolved_by_dataset[$dataset_num] + $resolved;
 				}
-				$items_to_resolve = [];
 			}
 		}
 
-		// Process remaining items
-		if (!empty($items_to_resolve)) {
-			$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
-				$items_to_resolve,
-				['label' => 'label']
-			);
-			if (is_array($resolved)) {
-				$resolved_all = $resolved_all + $resolved;
-			}
-		}
-
-		// Now run the original loop logic with pre-resolved values
+		// Now run the original loop logic with pre-resolved value
+		$fallback_count = 0;
 		foreach ($metrics as $metric_num => &$metric) {
 			$dataset_num = $metric['data_set'];
 			if (!array_key_exists($dataset_num, $agg_ds_names)) {
 				$agg_ds_names[$dataset_num] = [];
 			}
 
-			$resolved_value = $resolved_all[$metric['itemid']]['label'];
+			if (isset($resolved_by_dataset[$dataset_num][$metric['itemid']]['label'])) {
+				$resolved_value = $resolved_by_dataset[$dataset_num][$metric['itemid']]['label'];
+			}
+			else {
+				$fallback_count++;
+				// Fallback to original method if item not in batch results
+				$resolved = CMacrosResolverHelper::resolveItemBasedWidgetMacros(
+					[$metric['itemid'] => $metric + ['label' => $metric['options']['data_set_label']]],
+					['label' => 'label']
+				);
+				$resolved_value = $resolved[$metric['itemid']]['label'];
+			}
 
 			if ($metric['options']['dataset_aggregation'] == AGGREGATE_NONE) {
 				if ($legend_aggregation_show) {
@@ -511,8 +544,11 @@ class WidgetView extends CControllerDashboardWidgetView {
 				}
 			}
 			else {
-				$metrics[$dataset_metrics[$dataset_num]]['name'] = $name;
+				if ($metric['options']['dataset_aggregation'] != AGGREGATE_NONE) {
+					$metrics[$dataset_metrics[$dataset_num]]['name'] = $name;
+				}
 				$metrics[$dataset_metrics[$dataset_num]]['items'][] = $item;
+				
 				unset($metrics[$metric_num]);
 			}
 		}
