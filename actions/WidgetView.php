@@ -458,7 +458,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$fallback_count = 0;
 		foreach ($metrics as $metric_num => &$metric) {
 			$dataset_num = $metric['data_set'];
-			if (!array_key_exists($dataset_num, $add_ds_names)) {
+			if (!array_key_exists($dataset_num, $agg_ds_names)) {
 				$agg_ds_names[$dataset_num] = [];
 			}
 
